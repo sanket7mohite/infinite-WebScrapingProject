@@ -22,6 +22,8 @@ all_img_tag = []
 all_img_tag = scraper.get_img_tag(soup)
 
 
+# Download all body text from the page
+scraper.get_body_text(soup,output_dir)
 # Function to get page title
 page_title = scraper.get_page_title(soup)
 
@@ -53,3 +55,6 @@ scraper.write_to_csv(page_title, all_meta_tag, all_script_tag, all_anchor_tag, a
 # Appending the column 'google-tag-manger' into csv file
 scraper.create_or_append_csv('google-tag-manger', google_script_content, output_dir,  'WebScraping.csv')
 
+
+scraper.fullPage_page_screnshot(scraper.driver, output_dir)
+scraper.quiteBrowser(scraper.driver)

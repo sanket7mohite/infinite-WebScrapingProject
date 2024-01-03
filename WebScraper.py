@@ -9,6 +9,7 @@ import pandas as pd
 import requests
 from bs4 import BeautifulSoup
 from selenium import webdriver
+from selenium.webdriver import ActionChains
 from selenium.webdriver.common.by import By
 from dotenv import load_dotenv, dotenv_values
 from openpyxl import Workbook
@@ -64,13 +65,19 @@ class WebScraper:
         img_tag = soup.find_all('img')
         return img_tag
 
-    def get_body_text(self, soup):
+    def get_body_text(self, soup, filepath):
+        output_dir = os.path.join(filepath)
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+
         body_tag = soup.find('body')  # Find the <body> tag
         if body_tag:
             body_text = body_tag.get_text(separator='\n', strip=True)  # Extract text content within <body>
-            return body_text
-        else:
-            return None
+
+            # Write body text to a file
+            file_path = os.path.join(output_dir, 'body_text.txt')
+            with open(file_path, 'w', encoding='utf-8') as file:
+                file.write(body_text)
 
     def save_google_script_content_csv(self, soup):
         google_script_content = soup.find(id='ao-CookiePolicy')['data-pc']
@@ -203,15 +210,20 @@ class WebScraper:
             writer.writerow({'Image_FileName': image_data, 'meta_description': meta_data['meta_description'],
                              'meta_viewport': meta_data['meta_viewport']})
 
-    def fullPage_page_screnshot(self):
-        self.driver.save_full_page_screenshot('ScreenShots/ScreenShot.png')
-        self.driver.quit()
+    def fullPage_page_screnshot(self, driver, filepath):
+        filename = 'FullPageScreenShot.png'
+        output_dir = os.path.join(filepath)
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+            if os.path.exists(filename):
+                screenshot_filename = os.path.join(output_dir,filename)
+        file_path = os.path.join('output_directory', 'screenshot_filename')
 
     def quiteBrowser(self, driver):
         self.driver.quit()
 
     def write_to_csv(self, page_title, all_meta_tag, all_script_tag, all_anchor_tag, all_link_tag, image_names_img_tag,
-                         image_names_css, all_img_tag, filepath, csv_filename):
+                     image_names_css, all_img_tag, filepath, csv_filename):
 
         # Create the directory if it doesn't exist
         output_dir = os.path.join(filepath)
@@ -242,3 +254,81 @@ class WebScraper:
                         'images_tag': images_tag
                     })
 
+    def login(self, driver):
+        url = os.getenv('url')
+        login_url = url + '/login'
+        self.driver.get(login_url)
+        self.driver.find_element(By.XPATH, "//input[@id='aoLogin-email']").send_keys(os.getenv('email'))
+        self.driver.find_element(By.XPATH, "//input[@id='aoLogin-password']").send_keys(os.getenv('password'))
+        self.driver.find_element(By.XPATH, "//button[@id='aoLogin-Login']").click()
+
+    def navigateMenu_Technologies(self, driver):
+        ele = self.driver.find_element(By.XPATH, "//a[@title='Technologies']/parent::div[@class='aos__menu__node']")
+        self.move_to_element(self.driver, ele)
+
+    def move_to_element(self, driver, element):
+        actions = ActionChains(self.driver)
+        actions.move_to_element(element).perform()
+
+
+    def get_blog_title(self, driver):
+        blog_title = self.driver.find_element(By.XPATH, "//h1[contains(@class, 'ArticleTitle')]").text
+        return blog_title
+
+    def get_blog_category(self, driver):
+        blog_category = self.driver.find_element(By.XPATH, "//a[contains(@class, 'ataCategory')]").text
+        return blog_category
+
+    def get_blog_date(self, driver):
+        blog_date = self.driver.find_element(By.XPATH, "//span[contains(@class, 'ArticleDate')]").text
+        return blog_date
+
+    def get_blog_author(self, driver):
+        blog_author = self.driver.find_element(By.XPATH, "//span[contains(@class, 'ArticleAuthor')]").text
+        return blog_author
+
+    def get_blog_articleAccount(self, driver):
+        blog_articleAccount = self.driver.find_element(By.XPATH, "//span[contains(@class, 'ArticleAccount')]").text
+        return blog_articleAccount
+
+    def get_blog_intro(self, driver):
+        blog_intro = self.driver.find_element(By.XPATH, "//div[contains(@class, 'IntroText')]").text
+        return blog_intro
+
+    def get_blog_description(self, driver):
+        blog_description = self.driver.find_element(By.XPATH, "//div[contains(@class, 'Teaser')]").text
+        return blog_description
+
+    def get_blog_context(self, driver):
+        blog_context = self.driver.find_element(By.XPATH, "//div[contains(@class, 'ShareLinks')]/following::div[1]").text
+        return blog_context
+
+    # Title 	Blog Category	Blog Date	Blog Author Source	Blog Short Description	Blog Content
+    def write_to_csv_blog(self, blog_title, blog_category, blog_date, blog_author, blog_articleAccount, blog_intro, blog_context, filepath, csv_filename):
+
+        # Create the directory if it doesn't exist
+        output_dir = os.path.join(filepath)
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+            # Check if the file exists
+        if os.path.exists(csv_filename):
+            csv_filename = os.path.join(output_dir, csv_filename)
+
+            fieldnames = ['blog_title', 'blog_category', 'blog_date', 'blog_author', 'blog_articleAccount', 'blog_intro',
+                          'blog_context']
+
+            with open(csv_filename, 'w', newline='', encoding='utf-8') as csvfile:
+                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                writer.writeheader()
+
+                for title, category, date, author, articleAccount, intro, context in zip_longest(
+                        blog_title, blog_category, blog_date, blog_author, blog_articleAccount, blog_intro, blog_context, fillvalue=''):
+                    writer.writerow({
+                        'blog_title': title,
+                        'blog_category': category,
+                        'blog_date': date,
+                        'blog_author': author,
+                        'blog_articleAccount': articleAccount,
+                        'blog_intro': intro,
+                        'blog_context': context
+                    })
